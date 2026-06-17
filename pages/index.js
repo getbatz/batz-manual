@@ -4,6 +4,24 @@ import { t } from '../lib/i18n';
 import { searchAddress } from '../lib/geocode';
 import { saveOrder, getOrders } from '../lib/supabase';
 
+// Глобальные стили
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = `
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      overflow-x: hidden;
+      touch-action: pan-y;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 const Map = lazy(() => import('../components/Map'));
 
 export default function Home() {
@@ -21,22 +39,19 @@ export default function Home() {
   const [orders, setOrders] = useState([]);
   const [searchTimeout, setSearchTimeout] = useState(null);
 
-    useEffect(() => {
+  useEffect(() => {
     if (typeof window !== 'undefined' && window.Telegram) {
       const tg = window.Telegram.WebApp;
       tg.ready();
       tg.expand();
       
-      // Устанавливаем цвета
-      tg.setHeaderColor('#FFD700');
-      tg.setBackgroundColor('#ffffff');
+      // Принудительно разворачиваем
+      setTimeout(() => {
+        tg.expand();
+        tg.setHeaderColor('#FFD700');
+      }, 100);
       
-      // Разворачиваем на весь экран
-      document.body.style.margin = '0';
-      document.body.style.padding = '0';
-      document.documentElement.style.height = '100vh';
-      document.body.style.height = '100vh';
-      document.body.style.overflow = 'hidden';
+      tg.setBackgroundColor('#ffffff');
       
       if (tg.initDataUnsafe?.user) {
         setUser(tg.initDataUnsafe.user);
@@ -204,9 +219,9 @@ export default function Home() {
 
         {/* Форма */}
         <div style={styles.form}>
-          {/* Откуда */}
-          <div style={styles.inputWrapper}>
-            <span style={styles.icon}></span>
+{/* Откуда */}
+<div style={styles.inputWrapper}>
+  <span style={styles.icon}>📍</span>
             <div style={styles.inputContainer}>
               <input
                 type="text"
@@ -349,6 +364,8 @@ const styles = {
     flexDirection: 'column',
     backgroundColor: '#f5f5f5',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    height: '100vh', // Добавь эту строку
+    overflow: 'hidden', // Добавь эту строку
   },
   header: {
     backgroundColor: '#FFD700',
@@ -396,7 +413,7 @@ const styles = {
     opacity: 0.9,
   },
     mapContainer: {
-    height: '250px',
+    height: '200px', // Было 250px, уменьшаем
     position: 'relative',
     marginBottom: '30px', // Добавь эту строку
   },
@@ -424,12 +441,14 @@ const styles = {
   },
     form: {
     flex: 1,
-    padding: '20px',
+    padding: '15px', // Было 20px
     backgroundColor: '#fff',
     borderTopLeftRadius: '25px',
     borderTopRightRadius: '25px',
-    marginTop: '0px', // Было -20px или -40px, ставим 0
+    marginTop: '-30px', // Поднимаем выше
     boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
+    overflowY: 'auto', // Разрешаем скролл ВНУТРИ формы
+    paddingBottom: '30px', // Отступ снизу
   },
   inputWrapper: {
     display: 'flex',
