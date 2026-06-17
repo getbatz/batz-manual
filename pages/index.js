@@ -114,26 +114,20 @@ useEffect(() => {
     setSuggestions([]);
   };
 
-    const handleMapClick = async (latlng) => {
+  const handleMapClick = async (latlng) => {
     setLoadingLocation(true);
     
     try {
       const { reverseGeocode } = await import('../lib/geocode');
       const address = await reverseGeocode(latlng.lat, latlng.lng);
       
-      // Определяем куда ставить адрес - в "откуда" или "куда"
       if (activeField === 'to' || (to && activeField !== 'from')) {
-        setTo(address || `Точка на карте (${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)})`);
+        setTo(address || `Точка на карте`);
       } else {
-        setFrom(address || `Точка на карте (${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)})`);
+        setFrom(address || `Точка на карте`);
       }
     } catch (error) {
       console.error('Map click error:', error);
-      if (activeField === 'to' || to) {
-        setTo(`Точка на карте`);
-      } else {
-        setFrom(`Точка на карте`);
-      }
     }
     
     setLoadingLocation(false);
@@ -242,10 +236,22 @@ useEffect(() => {
           {/* Карта */}
           <div style={styles.mapContainer}>
             <Suspense fallback={<div style={styles.mapPlaceholder}>🗺️ Загрузка...</div>}>
-              <Map 
-                onLocationSelect={handleMapClick} 
-                userLocation={userLocation}
-              />
+<Map 
+  onLocationSelect={(latlng) => {
+    setLoadingLocation(true);
+    import('../lib/geocode').then(({ reverseGeocode }) => {
+      reverseGeocode(latlng.lat, latlng.lng).then(address => {
+        if (activeField === 'to' || (to && activeField !== 'from')) {
+          setTo(address || `Точка на карте`);
+        } else {
+          setFrom(address || `Точка на карте`);
+        }
+        setLoadingLocation(false);
+      });
+    });
+  }}
+  userLocation={userLocation}
+/>
             </Suspense>
             <button onClick={requestLocation} style={styles.geoButton}>
               {loadingLocation ? '⏳' : '📍'}
