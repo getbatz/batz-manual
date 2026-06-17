@@ -46,7 +46,7 @@ function MapUpdater({ center, zoom }) {
 
 export default function Map({ onLocationSelect, userLocation }) {
   const [currentPos, setCurrentPos] = useState(SHARBAKTY_CENTER);
-  const [zoom, setZoom] = useState(15); // Более детальный зум
+  const [zoom, setZoom] = useState(15);
 
   useEffect(() => {
     if (userLocation) {
