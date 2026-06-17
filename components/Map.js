@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Исправление иконок для Leaflet
+// Исправление иконок
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -11,22 +11,10 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// Координаты центра села Шарбакты
-const SHARBAKTY_CENTER = [52.48945, 78.16120]; // Центр села Шарбакты
+const SHARBAKTY_CENTER = [52.48945, 78.16120];
 
-// Кастомная иконка для текущей позиции
 const locationIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-// Кастомная иконка для пункта назначения
-const destinationIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
@@ -46,17 +34,17 @@ function MapUpdater({ center, zoom }) {
 
 export default function Map({ onLocationSelect, userLocation }) {
   const [currentPos, setCurrentPos] = useState(SHARBAKTY_CENTER);
-  const [zoom, setZoom] = useState(15);
+  const [zoom, setZoom] = useState(14);
 
-useEffect(() => {
-  if (userLocation) {
-    setCurrentPos([userLocation.lat, userLocation.lng]);
-    setZoom(15);
-  } else {
-    setCurrentPos(SHARBAKTY_CENTER);
-    setZoom(14);
-  }
-}, [userLocation]);
+  useEffect(() => {
+    if (userLocation) {
+      setCurrentPos([userLocation.lat, userLocation.lng]);
+      setZoom(15);
+    } else {
+      setCurrentPos(SHARBAKTY_CENTER);
+      setZoom(14);
+    }
+  }, [userLocation]);
 
   const handleMapClick = (e) => {
     if (onLocationSelect) {
@@ -68,19 +56,21 @@ useEffect(() => {
   };
 
   return (
-<MapContainer
-  center={currentPos}
-  zoom={zoom}
-  style={{ width: '100%', height: '100%' }}
-  onClick={(e) => onLocationSelect && onLocationSelect(e.latlng)}
-  zoomControl={false}
->
+    <MapContainer
+      center={currentPos}
+      zoom={zoom}
+      style={{ width: '100%', height: '100%', zIndex: 1 }}
+      onClick={handleMapClick}
+      zoomControl={false}
+      scrollWheelZoom={false}
+      doubleClickZoom={false}
+      dragging={true}
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       
-      {/* Маркер текущей позиции */}
       {currentPos && (
         <Marker position={currentPos} icon={locationIcon}>
           <Popup>Вы здесь</Popup>
@@ -91,4 +81,3 @@ useEffect(() => {
     </MapContainer>
   );
 }
-
