@@ -22,21 +22,28 @@ export default function Home() {
   const [searchTimeout, setSearchTimeout] = useState(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.Telegram) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
-      
-      if (tg.initDataUnsafe?.user) {
-        setUser(tg.initDataUnsafe.user);
-      }
-
-      tg.setHeaderColor('#FFD700');
-      tg.setBackgroundColor('#ffffff');
+  if (typeof window !== 'undefined' && window.Telegram) {
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+    tg.enableClosingConfirmation(); // Подтверждение закрытия
+    
+    // Устанавливаем полную высоту
+    tg.setHeaderColor('#FFD700');
+    tg.setBackgroundColor('#ffffff');
+    
+    // Разворачиваем на весь экран
+    if (tg.viewportHeight) {
+      document.documentElement.style.height = tg.viewportHeight + 'px';
     }
+    
+    if (tg.initDataUnsafe?.user) {
+      setUser(tg.initDataUnsafe.user);
+    }
+  }
 
-    requestLocation();
-  }, []);
+  requestLocation();
+}, []);
 
   const requestLocation = async () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
