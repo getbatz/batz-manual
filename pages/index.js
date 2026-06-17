@@ -1,643 +1,270 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
-import Head from 'next/head';
-import { t } from '../lib/i18n';
-import { saveOrder, getOrders } from '../lib/supabase';
+import { useEffect, useState, useCallback } from 'react';
+import Head from 'headless';
+import dynamic from 'next/dynamic';
+import { useRouter } from 'next/router';
+import { t, setLanguage } from '../lib/i18n';
+import { CENTER_COORDS, isInServiceZone, searchAddress, reverseGeocode } from '../lib/geocode';
+import { calculateTaxiPrice, TARIFFS } from '../lib/priceCalculator';
 
-const Map = lazy(() => import('../components/Map'));
+// Динамический импорт компонентов UI
+import Header from '../components/ui/Header';
+import AddressInput from '../components/ui/AddressInput';
+import TariffSelector from '../components/ui/TariffSelector';
+import PaymentSelector from '../components/ui/PaymentSelector';
+import OrderHistory from '../components/ui/OrderHistory';
+
+// Динамический импорт карты (чтобы не грузить её на сервере)
+const MapComponent = dynamic(() => import('../components/Map/Map'), { ssr: false });
 
 export default function Home() {
+  const router = useRouter();
+  const [tg, setTg] = useState(null);
+  const [user, setUser] = useState(null);
   const [lang, setLang] = useState('ru');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  
+  // Состояние карты и локаций
+  const [mapInstance, setMapInstance] = useState(null);
+  const [fromLocation, setFromLocation] = useState(null); // { lat, lng, address }
+  const [toLocation, setToLocation] = useState(null);     // { lat, lng, address }
+  
+  // Состояние заказа
   const [tariff, setTariff] = useState('economy');
   const [payment, setPayment] = useState('cash');
-  const [user, setUser] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
-  const [loadingLocation, setLoadingLocation] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
-  const [activeField, setActiveField] = useState(null);
-  const [showHistory, setShowHistory] = useState(false);
-  const [orders, setOrders] = useState([]);
-  const [searchTimeout, setSearchTimeout] = useState(null);
-
+  const [cashAmount, setCashAmount] = useState('');
+  const [price, setPrice] = useState(0);
+  const [distance, setDistance] = useState(0); // в метрах
+  const [orderStatus, setOrderStatus] = useState('idle'); // idle, confirming, searching, found, in_progress, completed
+  
+  // Инициализация Telegram WebApp
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Telegram) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
+      const telegram = window.Telegram.WebApp;
+      telegram.ready();
+      telegram.expand();
+      telegram.setHeaderColor('#FFD700');
+      telegram.setBackgroundColor('#ffffff');
+      telegram.enableClosingConfirmation();
       
-      // Принудительное раскрытие
-      tg.expand();
-      setTimeout(() => tg.expand(), 100);
-      setTimeout(() => tg.expand(), 300);
+      setTg(telegram);
       
-      tg.setHeaderColor('#FFD700');
-      tg.setBackgroundColor('#ffffff');
-      
-      if (tg.initDataUnsafe?.user) {
-        setUser(tg.initDataUnsafe.user);
+      const userData = telegram.initDataUnsafe?.user;
+      if (userData) {
+        setUser(userData);
+        // Автоопределение языка
+        const tgLang = userData.language_code || 'ru';
+        const supportedLangs = ['ru', 'kk', 'en'];
+        const selectedLang = supportedLangs.includes(tgLang) ? tgLang : 'ru';
+        setLang(selectedLang);
+        setLanguage(selectedLang);
       }
+      
+      // Настройка MainButton
+      telegram.MainButton.setText(t('order_taxi'));
+      telegram.MainButton.setColor('#FFD700');
+      telegram.MainButton.setTextColor('#000000');
+      
+      return () => {
+        telegram.disableClosingConfirmation();
+      };
     }
-    requestLocation();
   }, []);
 
-  const requestLocation = async () => {
-    if (typeof window !== 'undefined' && navigator.geolocation) {
-      setLoadingLocation(true);
-      
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          setUserLocation({ lat, lng });
-          
-          const { reverseGeocode } = await import('../lib/geocode');
-          const address = await reverseGeocode(lat, lng);
-          setFrom(address || 'Моё местоположение');
-          setLoadingLocation(false);
-        },
-        (error) => {
-          console.error('Geolocation error:', error);
-          setLoadingLocation(false);
-          setUserLocation({ lat: 53.2167, lng: 75.6833 });
-          setFrom('с. Шарбакты, Щербактинский район');
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    }
-  };
-
-  const handleSearch = (value, field) => {
-    setActiveField(field);
-    if (field === 'from') setFrom(value);
-    else setTo(value);
-
-    if (searchTimeout) clearTimeout(searchTimeout);
+  // Обновление текста кнопки при смене языка или статуса
+  useEffect(() => {
+    if (!tg) return;
     
-    if (value.length < 3) {
-      setSuggestions([]);
-      return;
-    }
-
-    const timeout = setTimeout(async () => {
-      const { searchAddress } = await import('../lib/geocode');
-      const results = await searchAddress(value);
-      setSuggestions(results);
-    }, 500);
+    let buttonText = t('order_taxi');
+    if (orderStatus === 'confirming') buttonText = t('confirm_order');
+    if (orderStatus === 'searching') buttonText = t('cancel_search');
+    if (orderStatus === 'found') buttonText = t('contact_driver');
     
-    setSearchTimeout(timeout);
-  };
-
-  const selectSuggestion = (suggestion) => {
-    if (activeField === 'from') setFrom(suggestion.name);
-    else setTo(suggestion.name);
-    setSuggestions([]);
-  };
-
-  const handleMapClick = async (latlng) => {
-    setLoadingLocation(true);
+    tg.MainButton.setText(buttonText);
     
-    try {
-      const { reverseGeocode } = await import('../lib/geocode');
-      const address = await reverseGeocode(latlng.lat, latlng.lng);
-      
-      if (activeField === 'to' || (to && activeField !== 'from')) {
-        setTo(address || 'Точка на карте');
-      } else {
-        setFrom(address || 'Точка на карте');
-      }
-    } catch (error) {
-      console.error('Map click error:', error);
-    }
-    
-    setLoadingLocation(false);
-  };
-
-  const tariffs = {
-    economy: { name: 'economy', price: 1000, icon: '🚗', time: 5 },
-    comfort: { name: 'comfort', price: 1500, icon: '🚙', time: 7 },
-    business: { name: 'business', price: 2500, icon: '🚘', time: 10 },
-  };
-
-  const paymentMethods = [
-    { id: 'cash', icon: '💵', name: 'cash' },
-    { id: 'kaspi', icon: '/kaspi-logo.PNG', name: 'kaspi' },
-    { id: 'halyk', icon: '/halyk-logo.PNG', name: 'halyk' },
-  ];
-
-  const handleOrder = async () => {
-    if (!from || !to) {
-      alert(t(lang, 'fillAddresses'));
-      return;
-    }
-
-    const orderData = {
-      user_id: user?.id || 'anonymous',
-      user_name: user ? `${user.first_name} ${user.last_name || ''}`.trim() : 'Anonymous',
-      user_username: user?.username || '',
-      from,
-      to,
-      tariff,
-      payment,
-      price: tariffs[tariff].price,
-      eta: tariffs[tariff].time,
-      status: 'pending',
-      created_at: new Date().toISOString(),
-    };
-
-    const result = await saveOrder(orderData);
-
-    if (result.success) {
-      alert(`${t(lang, 'orderSuccess')}\n\n📍 ${from}\n🏁 ${to}\n🚗 ${t(lang, tariff)}\n💰 ${tariffs[tariff].price} ${t(lang, 'tenge')}\n⏱ ${t(lang, 'driverComing')} ${tariffs[tariff].time} ${t(lang, 'minutes')}`);
+    if (orderStatus === 'idle' || orderStatus === 'confirming') {
+      tg.MainButton.show();
+      tg.MainButton.enable();
+    } else if (orderStatus === 'searching' || orderStatus === 'found') {
+      tg.MainButton.show();
+      tg.MainButton.enable();
     } else {
-      alert('Ошибка сохранения заказа.');
+      tg.MainButton.hide();
     }
-  };
+  }, [tg, orderStatus, lang]);
 
-  const loadHistory = async () => {
-    if (!user) {
-      alert('Войдите через Telegram');
+  // Обработчик нажатия на главную кнопку
+  useEffect(() => {
+    if (!tg) return;
+    
+    const handleMainButtonClick = () => {
+      if (orderStatus === 'idle') {
+        if (!fromLocation || !toLocation) {
+          tg.showAlert(t('fill_addresses'));
+          return;
+        }
+        if (!isInServiceZone(fromLocation.lat, fromLocation.lng)) {
+          tg.showAlert(t('outside_zone'));
+          return;
+        }
+        if (!isInServiceZone(toLocation.lat, toLocation.lng)) {
+          tg.showAlert(t('outside_zone'));
+          return;
+        }
+        setOrderStatus('confirming');
+      } else if (orderStatus === 'confirming') {
+        // Подтверждение заказа
+        setOrderStatus('searching');
+        // Здесь будет логика отправки заказа в базу и уведомления водителей
+        setTimeout(() => {
+          setOrderStatus('found');
+        }, 3000);
+      } else if (orderStatus === 'searching') {
+        // Отмена поиска
+        setOrderStatus('idle');
+      } else if (orderStatus === 'found') {
+        // Связь с водителем
+        tg.openTelegramLink('https://t.me/driver_username');
+      }
+    };
+    
+    tg.MainButton.onClick(handleMainButtonClick);
+    return () => tg.MainButton.offClick(handleMainButtonClick);
+  }, [tg, orderStatus, fromLocation, toLocation, lang]);
+
+  // Расчет стоимости при изменении точек или тарифа
+  useEffect(() => {
+    if (fromLocation && toLocation) {
+      // Простой расчет расстояния (в реальности нужно использовать OSRM для маршрута)
+      const dx = fromLocation.lng - toLocation.lng;
+      const dy = fromLocation.lat - toLocation.lat;
+      const distDeg = Math.sqrt(dx * dx + dy * dy);
+      const distMeters = distDeg * 111000; // Примерный перевод градусов в метры
+      
+      setDistance(distMeters);
+      
+      // Проверка: является ли поездка пригородной (упрощенно)
+      const isSuburb = !isInServiceZone(toLocation.lat, toLocation.lng); 
+      const suburbDist = isSuburb ? distMeters / 1000 : 0;
+      
+      const basePrice = calculateTaxiPrice(distMeters, isSuburb, suburbDist);
+      const finalPrice = Math.round(basePrice * TARIFFS[tariff].multiplier);
+      
+      setPrice(finalPrice);
+    } else {
+      setPrice(0);
+      setDistance(0);
+    }
+  }, [fromLocation, toLocation, tariff]);
+
+  // Обработчики для AddressInput
+  const handleFromSelect = (location) => {
+    if (!isInServiceZone(location.lat, location.lng)) {
+      if (tg) tg.showAlert(t('outside_zone'));
       return;
     }
-    setShowHistory(true);
-    const history = await getOrders(user.id);
-    setOrders(history);
+    setFromLocation(location);
   };
 
-  const changeLanguage = () => {
-    const langs = ['ru', 'kz', 'en'];
-    const idx = langs.indexOf(lang);
-    setLang(langs[(idx + 1) % langs.length]);
+  const handleToSelect = (location) => {
+    // Для пункта назначения можно разрешить выбор за пределами зоны, но предупредить
+    setToLocation(location);
   };
+
+  if (!tg) {
+    return <div style={{ padding: 20, textAlign: 'center' }}>{t('loading')}</div>;
+  }
 
   return (
-    <>
-      <Head>
-        <title>{t(lang, 'appName')}</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-      </Head>
+    <div style={{ 
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+      backgroundColor: '#F5F5F5',
+      minHeight: '100vh',
+      paddingBottom: 80
+    }}>
+      <Header lang={lang} setLang={(l) => { setLang(l); setLanguage(l); }} />
+      
+      {/* Карта */}
+      <div style={{ height: '40vh', width: '100%', position: 'relative' }}>
+        <MapComponent 
+          center={[CENTER_COORDS.lat, CENTER_COORDS.lng]}
+          from={fromLocation}
+          to={toLocation}
+          onMapReady={setMapInstance}
+          onLocationSelect={(loc, type) => {
+            if (type === 'from') handleFromSelect(loc);
+            if (type === 'to') handleToSelect(loc);
+          }}
+        />
+      </div>
 
-      <div style={styles.container}>
-        <div style={styles.header}>
-          <div style={styles.headerTop}>
-            <h1 style={styles.title}>{t(lang, 'appName')} 🚕</h1>
-            <div style={styles.headerButtons}>
-              <button onClick={changeLanguage} style={styles.langBtn}>{lang.toUpperCase()}</button>
-              <button onClick={loadHistory} style={styles.historyBtn}>📋</button>
-            </div>
-          </div>
-          {user && <p style={styles.greeting}>{t(lang, 'welcome')}, {user.first_name}! 👋</p>}
-          <p style={styles.tagline}>{t(lang, 'tagline')}</p>
+      {/* Форма заказа */}
+      <div style={{ padding: 16, backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, marginTop: -20, position: 'relative', zIndex: 10 }}>
+        
+        <AddressInput 
+          label={t('from')}
+          value={fromLocation?.address || ''}
+          onSelect={handleFromSelect}
+          placeholder={t('enter_from')}
+          type="from"
+        />
+        
+        <div style={{ height: 12 }} />
+        
+        <AddressInput 
+          label={t('to')}
+          value={toLocation?.address || ''}
+          onSelect={handleToSelect}
+          placeholder={t('enter_to')}
+          type="to"
+        />
+
+        <div style={{ height: 20 }} />
+        
+        <TariffSelector 
+          selected={tariff} 
+          onChange={setTariff} 
+          lang={lang}
+        />
+
+        <div style={{ height: 20 }} />
+        
+        <PaymentSelector 
+          selected={payment} 
+          onChange={setPayment} 
+          cashAmount={cashAmount}
+          onCashAmountChange={setCashAmount}
+          lang={lang}
+        />
+
+        {/* Итого */}
+        <div style={{ 
+          marginTop: 24, 
+          padding: 16, 
+          backgroundColor: '#FFF9C4', 
+          borderRadius: 12,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span style={{ fontSize: 16, fontWeight: 500 }}>{t('total')}:</span>
+          <span style={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
+            {price > 0 ? `${price} ₸` : '---'}
+          </span>
         </div>
-
-        <div style={styles.scrollContent}>
-          <div style={styles.mapContainer}>
-            <Suspense fallback={<div style={styles.mapPlaceholder}>🗺️ Загрузка...</div>}>
-              <Map onLocationSelect={handleMapClick} userLocation={userLocation} />
-            </Suspense>
-            <button onClick={requestLocation} style={styles.geoButton}>
-              {loadingLocation ? '⏳' : '📍'}
-            </button>
-          </div>
-
-          <div style={styles.form}>
-            <div style={styles.inputWrapper}>
-              <span style={styles.icon}>📍</span>
-              <div style={styles.inputContainer}>
-                <input
-                  type="text"
-                  placeholder={t(lang, 'from')}
-                  value={from}
-                  onChange={(e) => handleSearch(e.target.value, 'from')}
-                  onFocus={() => setActiveField('from')}
-                  style={styles.input}
-                />
-                {activeField === 'from' && suggestions.length > 0 && (
-                  <div style={styles.suggestions}>
-                    {suggestions.map((s, i) => (
-                      <div key={i} style={styles.suggestionItem} onClick={() => selectSuggestion(s)}>
-                        📍 {s.name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div style={styles.line}></div>
-
-            <div style={styles.inputWrapper}>
-              <span style={styles.icon}>🏁</span>
-              <div style={styles.inputContainer}>
-                <input
-                  type="text"
-                  placeholder={t(lang, 'to')}
-                  value={to}
-                  onChange={(e) => handleSearch(e.target.value, 'to')}
-                  onFocus={() => setActiveField('to')}
-                  style={styles.input}
-                />
-                {activeField === 'to' && suggestions.length > 0 && (
-                  <div style={styles.suggestions}>
-                    {suggestions.map((s, i) => (
-                      <div key={i} style={styles.suggestionItem} onClick={() => selectSuggestion(s)}>
-                        🏁 {s.name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div style={styles.tariffs}>
-              {Object.entries(tariffs).map(([key, value]) => (
-                <button
-                  key={key}
-                  onClick={() => setTariff(key)}
-                  style={{
-                    ...styles.tariffBtn,
-                    ...(tariff === key ? styles.tariffActive : {}),
-                  }}
-                >
-                  <div style={styles.tariffIcon}>{value.icon}</div>
-                  <div style={styles.tariffName}>{t(lang, value.name)}</div>
-                  <div style={styles.tariffPrice}>{value.price} {t(lang, 'tenge')}</div>
-                </button>
-              ))}
-            </div>
-
-            <div style={styles.paymentLabel}>{t(lang, 'payment')}:</div>
-            <div style={styles.paymentMethods}>
-              {paymentMethods.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setPayment(p.id)}
-                  style={{
-                    ...styles.paymentBtn,
-                    ...(payment === p.id ? styles.paymentActive : {}),
-                  }}
-                >
-                  {p.id === 'cash' ? (
-                    <span style={{fontSize: '28px'}}>{p.icon}</span>
-                  ) : (
-                    <img src={p.icon} alt={p.name} style={styles.logo} />
-                  )}
-                  <span>{t(lang, p.name)}</span>
-                </button>
-              ))}
-            </div>
-
-            <div style={styles.totalRow}>
-              <span>{t(lang, 'total')}:</span>
-              <span style={styles.totalPrice}>{tariffs[tariff].price} {t(lang, 'tenge')}</span>
-            </div>
-
-            <button onClick={handleOrder} style={styles.orderBtn}>
-              {t(lang, 'order')} 🚕
-            </button>
-          </div>
-        </div>
-
-        {showHistory && (
-          <div style={styles.modal}>
-            <div style={styles.modalContent}>
-              <div style={styles.modalHeader}>
-                <h2 style={styles.modalTitle}>{t(lang, 'history')}</h2>
-                <button onClick={() => setShowHistory(false)} style={styles.closeBtn}>✕</button>
-              </div>
-              <div style={styles.modalBody}>
-                {orders.length === 0 ? (
-                  <p style={styles.emptyText}>{t(lang, 'noOrders')}</p>
-                ) : (
-                  orders.map((order, i) => (
-                    <div key={i} style={styles.orderItem}>
-                      <div style={styles.orderDate}>{new Date(order.created_at).toLocaleString('ru-RU')}</div>
-                      <div>📍 {order.from}</div>
-                      <div>🏁 {order.to}</div>
-                      <div style={styles.orderPrice}>💰 {order.price} {t(lang, 'tenge')} • {t(lang, order.tariff)}</div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+        
+        {distance > 0 && (
+          <div style={{ textAlign: 'center', marginTop: 8, fontSize: 13, color: '#666' }}>
+            ~{(distance / 1000).toFixed(2)} км
           </div>
         )}
       </div>
-    </>
+
+      {/* История заказов (можно вынести в отдельную страницу или модалку) */}
+      {orderStatus === 'idle' && (
+        <div style={{ padding: 16 }}>
+          <h3 style={{ fontSize: 18, marginBottom: 12 }}>{t('history')}</h3>
+          <OrderHistory userId={user?.id} lang={lang} />
+        </div>
+      )}
+    </div>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    backgroundColor: '#f5f5f5',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    height: '100vh',
-    overflow: 'hidden',
-  },
-  header: {
-    backgroundColor: '#FFD700',
-    padding: '12px',
-    paddingTop: '40px',
-    flexShrink: 0,
-  },
-  headerTop: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    margin: 0,
-    fontSize: '24px',
-    fontWeight: 'bold',
-  },
-  headerButtons: {
-    display: 'flex',
-    gap: '8px',
-  },
-  langBtn: {
-    backgroundColor: '#fff',
-    border: 'none',
-    padding: '6px 10px',
-    borderRadius: '8px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    fontSize: '13px',
-  },
-  historyBtn: {
-    backgroundColor: '#fff',
-    border: 'none',
-    padding: '6px 10px',
-    borderRadius: '8px',
-    fontSize: '18px',
-    cursor: 'pointer',
-  },
-  greeting: {
-    margin: '8px 0 4px',
-    fontSize: '14px',
-  },
-  tagline: {
-    margin: 0,
-    fontSize: '13px',
-    opacity: 0.9,
-  },
-  scrollContent: {
-    flex: 1,
-    overflowY: 'auto',
-    overflowX: 'hidden',
-    WebkitOverflowScrolling: 'touch',
-  },
-  mapContainer: {
-    height: '200px',
-    position: 'relative',
-    width: '100%',
-  },
-  mapPlaceholder: {
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#e0e0e0',
-  },
-  geoButton: {
-    position: 'absolute',
-    bottom: '10px',
-    right: '10px',
-    width: '45px',
-    height: '45px',
-    borderRadius: '50%',
-    backgroundColor: '#fff',
-    border: 'none',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-    fontSize: '20px',
-    cursor: 'pointer',
-    zIndex: 1000,
-  },
-  form: {
-    padding: '15px',
-    backgroundColor: '#fff',
-    borderTopLeftRadius: '25px',
-    borderTopRightRadius: '25px',
-    marginTop: '-40px',
-    position: 'relative',
-    zIndex: 10,
-    boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
-    paddingBottom: '30px',
-  },
-  inputWrapper: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '10px',
-    marginBottom: '8px',
-  },
-  inputContainer: {
-    flex: 1,
-    position: 'relative',
-    zIndex: 100,
-  },
-  icon: {
-    fontSize: '20px',
-    width: '28px',
-    textAlign: 'center',
-    paddingTop: '12px',
-  },
-  input: {
-    width: '100%',
-    padding: '12px',
-    border: '1px solid #ddd',
-    borderRadius: '10px',
-    fontSize: '15px',
-    outline: 'none',
-    boxSizing: 'border-box',
-    cursor: 'text',
-    pointerEvents: 'auto',
-  },
-  suggestions: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    border: '1px solid #ddd',
-    borderRadius: '10px',
-    marginTop: '5px',
-    maxHeight: '200px',
-    overflowY: 'auto',
-    zIndex: 1000,
-    boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
-  },
-  suggestionItem: {
-    padding: '10px',
-    borderBottom: '1px solid #f0f0f0',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
-  line: {
-    height: '2px',
-    backgroundColor: '#FFD700',
-    margin: '8px 18px',
-    opacity: 0.5,
-  },
-  tariffs: {
-    display: 'flex',
-    gap: '8px',
-    marginBottom: '15px',
-    marginTop: '15px',
-  },
-  tariffBtn: {
-    flex: 1,
-    padding: '10px 6px',
-    border: '2px solid #ddd',
-    borderRadius: '10px',
-    backgroundColor: '#fff',
-    cursor: 'pointer',
-    textAlign: 'center',
-  },
-  tariffActive: {
-    borderColor: '#FFD700',
-    backgroundColor: '#FFFDE7',
-  },
-  tariffIcon: {
-    fontSize: '24px',
-    marginBottom: '3px',
-  },
-  tariffName: {
-    fontSize: '12px',
-    fontWeight: 'bold',
-    marginBottom: '2px',
-  },
-  tariffPrice: {
-    fontSize: '11px',
-    color: '#666',
-  },
-  paymentLabel: {
-    fontSize: '13px',
-    fontWeight: 'bold',
-    marginBottom: '8px',
-    color: '#333',
-  },
-  paymentMethods: {
-    display: 'flex',
-    gap: '8px',
-    marginBottom: '15px',
-  },
-  paymentBtn: {
-    flex: 1,
-    padding: '10px',
-    border: '2px solid #ddd',
-    borderRadius: '10px',
-    backgroundColor: '#fff',
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '4px',
-    fontSize: '12px',
-  },
-  paymentActive: {
-    borderColor: '#FFD700',
-    backgroundColor: '#FFFDE7',
-  },
-  logo: {
-    width: '35px',
-    height: '35px',
-    objectFit: 'contain',
-    marginBottom: '3px',
-    pointerEvents: 'none',
-  },
-  totalRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '12px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '10px',
-    marginBottom: '15px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-  },
-  totalPrice: {
-    color: '#FFD700',
-    fontSize: '20px',
-  },
-  orderBtn: {
-    width: '100%',
-    padding: '18px',
-    backgroundColor: '#FFD700',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: '18px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    boxShadow: '0 4px 15px rgba(255, 215, 0, 0.4)',
-  },
-  modal: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    zIndex: 2000,
-    display: 'flex',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    width: '100%',
-    maxHeight: '80vh',
-    borderTopLeftRadius: '25px',
-    borderTopRightRadius: '25px',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  modalHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '15px',
-    borderBottom: '1px solid #eee',
-  },
-  modalTitle: {
-    margin: 0,
-    fontSize: '18px',
-  },
-  closeBtn: {
-    background: 'none',
-    border: 'none',
-    fontSize: '24px',
-    cursor: 'pointer',
-    padding: '0',
-    width: '30px',
-    height: '30px',
-  },
-  modalBody: {
-    padding: '15px',
-    overflowY: 'auto',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#999',
-    padding: '30px',
-  },
-  orderItem: {
-    padding: '12px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '10px',
-    marginBottom: '8px',
-    fontSize: '13px',
-  },
-  orderDate: {
-    fontSize: '11px',
-    color: '#999',
-    marginBottom: '6px',
-  },
-  orderPrice: {
-    marginTop: '6px',
-    fontWeight: 'bold',
-    color: '#FFD700',
-  },
-};
