@@ -39,29 +39,26 @@ export default function Home() {
   const [orders, setOrders] = useState([]);
   const [searchTimeout, setSearchTimeout] = useState(null);
 
-useEffect(() => {
-  if (typeof window !== 'undefined' && window.Telegram) {
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    
-    // Принудительное раскрытие
-    const expandApp = () => {
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.Telegram) {
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      
+      // Принудительное раскрытие на весь экран
       tg.expand();
+      setTimeout(() => tg.expand(), 100);
+      setTimeout(() => tg.expand(), 300);
+      
       tg.setHeaderColor('#FFD700');
       tg.setBackgroundColor('#ffffff');
-    };
-    
-    expandApp();
-    setTimeout(expandApp, 100);
-    setTimeout(expandApp, 300);
-    
-    if (tg.initDataUnsafe?.user) {
-      setUser(tg.initDataUnsafe.user);
+      tg.enableClosingConfirmation();
+      
+      if (tg.initDataUnsafe?.user) {
+        setUser(tg.initDataUnsafe.user);
+      }
     }
-  }
-  requestLocation();
-}, []);
-
+    requestLocation();
+  }, []);
   const requestLocation = async () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
       setLoadingLocation(true);
@@ -408,70 +405,47 @@ const styles = {
   },
   header: {
     backgroundColor: '#FFD700',
-    padding: '15px',
-    paddingTop: '45px',
+    padding: '12px',  // Было 15px или 20px
+    paddingTop: '40px',  // Было 45px или 50px
     flexShrink: 0,
   },
-  // ... (headerTop, title и т.д. остаются без изменений)
   
-  scrollContent: {
-    flex: 1,
-    overflowY: 'auto',
-    overflowX: 'hidden',
-    WebkitOverflowScrolling: 'touch',
-  },
   mapContainer: {
-    height: '220px',
+    height: '200px',  // Уменьшил с 220px
     position: 'relative',
     width: '100%',
   },
-  mapPlaceholder: {
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#e0e0e0',
-  },
-  // ... остальные стили карты
   
   form: {
-    padding: '20px',
+    padding: '15px',
     backgroundColor: '#fff',
     borderTopLeftRadius: '25px',
     borderTopRightRadius: '25px',
-    marginTop: '-30px',
+    marginTop: '-40px',  // Увеличил отрицательный margin
     position: 'relative',
     zIndex: 10,
     boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
     paddingBottom: '30px',
   },
-  // ... остальные стили формы
-  inputWrapper: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '12px',
-    marginBottom: '10px',
-  },
-  inputContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  icon: {
-    fontSize: '22px',
-    width: '30px',
-    textAlign: 'center',
-    paddingTop: '14px',
-  },
+  
   input: {
     width: '100%',
     padding: '14px',
     border: '1px solid #ddd',
     borderRadius: '12px',
-    fontSize: '15px',
+    fontSize: '16px',
     outline: 'none',
     boxSizing: 'border-box',
+    cursor: 'text',  // Добавил курсор
+    pointerEvents: 'auto',  // Разрешил клики
   },
+  
+  inputContainer: {
+    flex: 1,
+    position: 'relative',
+    zIndex: 100,  // Добавил высокий z-index
+  },
+  
   suggestions: {
     position: 'absolute',
     top: '100%',
@@ -483,7 +457,7 @@ const styles = {
     marginTop: '5px',
     maxHeight: '200px',
     overflowY: 'auto',
-    zIndex: 100,
+    zIndex: 1000,  // Увеличил z-index
     boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
   },
   suggestionItem: {
