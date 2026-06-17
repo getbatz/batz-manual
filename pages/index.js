@@ -1,7 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import Head from 'next/head';
 
-// Динамический импорт карты (чтобы не ломать сборку)
 const Map = lazy(() => import('../components/Map'));
 
 export default function Home() {
@@ -9,9 +8,11 @@ export default function Home() {
   const [to, setTo] = useState('');
   const [tariff, setTariff] = useState('economy');
   const [user, setUser] = useState(null);
-  const [mapCenter, setMapCenter] = useState([53.2167, 75.6833]);
+  const [userLocation, setUserLocation] = useState(null);
+  const [loadingLocation, setLoadingLocation] = useState(false);
 
   useEffect(() => {
+    // Инициализация Telegram
     if (typeof window !== 'undefined' && window.Telegram) {
       const tg = window.Telegram.WebApp;
       tg.ready();
@@ -24,7 +25,60 @@ export default function Home() {
       tg.setHeaderColor('#FFD700');
       tg.setBackgroundColor('#ffffff');
     }
+
+    // Запрос геолокации
+    requestLocation();
   }, []);
+
+  const requestLocation = () => {
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      setLoadingLocation(true);
+      
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setUserLocation({ lat, lng });
+          
+          // Получаем адрес через Nominatim (бесплатно)
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+              {
+                headers: {
+                  'User-Agent': 'BATZ-Taxi-App/1.0',
+                },
+              }
+            );
+            const data = await response.json();
+            
+            if (data && data.display_name) {
+              setFrom(data.display_name);
+            } else {
+              setFrom(`Мое местоположение (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+            }
+          } catch (error) {
+            console.error('Geocoding error:', error);
+            setFrom(`Мое местоположение (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+          }
+          
+          setLoadingLocation(false);
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          setLoadingLocation(false);
+          // Если геолокация недоступна, используем центр Шарбакты
+          setUserLocation({ lat: 53.2167, lng: 75.6833 });
+          setFrom('с. Шарбакты, Щербактинский район');
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    }
+  };
 
   const tariffs = {
     economy: { name: 'Эконом', price: 1000, icon: '🚗', time: 5 },
@@ -32,9 +86,31 @@ export default function Home() {
     business: { name: 'Бизнес', price: 2500, icon: '', time: 10 },
   };
 
-  const handleMapClick = (latlng) => {
-    setMapCenter([latlng.lat, latlng.lng]);
-    setFrom(`Координаты: ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`);
+  const handleMapClick = async (latlng) => {
+    setLoadingLocation(true);
+    
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'BATZ-Taxi-App/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+      
+      if (data && data.display_name) {
+        setFrom(data.display_name);
+      } else {
+        setFrom(`Точка на карте (${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)})`);
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      setFrom(`Точка на карте (${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)})`);
+    }
+    
+    setLoadingLocation(false);
   };
 
   const handleOrder = () => {
@@ -44,7 +120,7 @@ export default function Home() {
     }
 
     const orderInfo = `
-🚕 Заказ такси БАЦ
+ Заказ такси БАЦ
 
 📍 Откуда: ${from}
 🏁 Куда: ${to}
@@ -81,9 +157,21 @@ export default function Home() {
 
         {/* Карта */}
         <div style={styles.mapContainer}>
-          <Suspense fallback={<div style={styles.mapPlaceholder}> Загрузка карты...</div>}>
-            <Map onLocationSelect={handleMapClick} />
+          <Suspense fallback={<div style={styles.mapPlaceholder}>🗺️ Загрузка карты...</div>}>
+            <Map 
+              onLocationSelect={handleMapClick} 
+              userLocation={userLocation}
+            />
           </Suspense>
+          
+          {/* Кнопка геолокации */}
+          <button 
+            onClick={requestLocation} 
+            style={styles.geoButton}
+            title="Моё местоположение"
+          >
+            {loadingLocation ? '⏳' : '📍'}
+          </button>
         </div>
 
         {/* Форма */}
@@ -132,7 +220,7 @@ export default function Home() {
 
           {/* Кнопка заказа */}
           <button onClick={handleOrder} style={styles.orderBtn}>
-            Заказать БАЦ 🚕
+            Заказать БАЦ 
           </button>
         </div>
       </div>
@@ -169,7 +257,7 @@ const styles = {
     opacity: 0.9,
   },
   mapContainer: {
-    height: '250px',
+    height: '280px',
     position: 'relative',
   },
   mapPlaceholder: {
@@ -181,6 +269,23 @@ const styles = {
     backgroundColor: '#e0e0e0',
     fontSize: '16px',
     color: '#666',
+  },
+  geoButton: {
+    position: 'absolute',
+    bottom: '15px',
+    right: '15px',
+    width: '50px',
+    height: '50px',
+    borderRadius: '50%',
+    backgroundColor: '#fff',
+    border: 'none',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+    fontSize: '24px',
+    cursor: 'pointer',
+    zIndex: 1000,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   form: {
     flex: 1,
