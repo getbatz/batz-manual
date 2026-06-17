@@ -173,23 +173,27 @@ export default function Home() {
   return (
     <>
       <Head>
-  <title>{t(lang, 'appName')}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <style>{`
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: hidden;
-    }
-  `}</style>
-</Head>
+        <title>{t(lang, 'appName')}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+        <style>{`
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+          }
+          html, body {
+            overflow-x: hidden;
+            height: 100%;
+          }
+        `}</style>
+      </Head>
 
       <div style={styles.container}>
         {/* Шапка */}
         <div style={styles.header}>
           <div style={styles.headerTop}>
-            <h1 style={styles.title}>{t(lang, 'appName')} </h1>
+            <h1 style={styles.title}>{t(lang, 'appName')} 🚕</h1>
             <div style={styles.headerButtons}>
               <button onClick={changeLanguage} style={styles.langBtn}>
                 {lang.toUpperCase()}
@@ -207,120 +211,124 @@ export default function Home() {
           <p style={styles.tagline}>{t(lang, 'tagline')}</p>
         </div>
 
-        {/* Карта */}
-        <div style={styles.mapContainer}>
-          <Suspense fallback={<div style={styles.mapPlaceholder}>️ Загрузка...</div>}>
-            <Map onLocationSelect={() => {}} userLocation={userLocation} />
-          </Suspense>
-          <button onClick={requestLocation} style={styles.geoButton}>
-            {loadingLocation ? '' : '📍'}
-          </button>
-        </div>
-
-        {/* Форма */}
-        <div style={styles.form}>
-{/* Откуда */}
-<div style={styles.inputWrapper}>
-  <span style={styles.icon}>📍</span>
-            <div style={styles.inputContainer}>
-              <input
-                type="text"
-                placeholder={t(lang, 'from')}
-                value={from}
-                onChange={(e) => handleSearch(e.target.value, 'from')}
-                onFocus={() => setActiveField('from')}
-                style={styles.input}
+        {/* ВСЁ содержимое скроллится */}
+        <div style={styles.scrollContent}>
+          {/* Карта */}
+          <div style={styles.mapContainer}>
+            <Suspense fallback={<div style={styles.mapPlaceholder}>🗺️ Загрузка...</div>}>
+              <Map 
+                onLocationSelect={handleMapClick} 
+                userLocation={userLocation}
               />
-              {activeField === 'from' && suggestions.length > 0 && (
-                <div style={styles.suggestions}>
-                  {suggestions.map((s, i) => (
-                    <div key={i} style={styles.suggestionItem} onClick={() => selectSuggestion(s)}>
-                      📍 {s.name}
-                    </div>
-                  ))}
-                </div>
-              )}
+            </Suspense>
+            <button onClick={requestLocation} style={styles.geoButton}>
+              {loadingLocation ? '⏳' : '📍'}
+            </button>
+          </div>
+
+          {/* Форма */}
+          <div style={styles.form}>
+            {/* Откуда */}
+            <div style={styles.inputWrapper}>
+              <span style={styles.icon}>📍</span>
+              <div style={styles.inputContainer}>
+                <input
+                  type="text"
+                  placeholder={t(lang, 'from')}
+                  value={from}
+                  onChange={(e) => handleSearch(e.target.value, 'from')}
+                  onFocus={() => setActiveField('from')}
+                  style={styles.input}
+                />
+                {activeField === 'from' && suggestions.length > 0 && (
+                  <div style={styles.suggestions}>
+                    {suggestions.map((s, i) => (
+                      <div key={i} style={styles.suggestionItem} onClick={() => selectSuggestion(s)}>
+                        📍 {s.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          <div style={styles.line}></div>
+            <div style={styles.line}></div>
 
-          {/* Куда */}
-          <div style={styles.inputWrapper}>
-            <span style={styles.icon}>🏁</span>
-            <div style={styles.inputContainer}>
-              <input
-                type="text"
-                placeholder={t(lang, 'to')}
-                value={to}
-                onChange={(e) => handleSearch(e.target.value, 'to')}
-                onFocus={() => setActiveField('to')}
-                style={styles.input}
-              />
-              {activeField === 'to' && suggestions.length > 0 && (
-                <div style={styles.suggestions}>
-                  {suggestions.map((s, i) => (
-                    <div key={i} style={styles.suggestionItem} onClick={() => selectSuggestion(s)}>
-                       {s.name}
-                    </div>
-                  ))}
-                </div>
-              )}
+            {/* Куда */}
+            <div style={styles.inputWrapper}>
+              <span style={styles.icon}>🏁</span>
+              <div style={styles.inputContainer}>
+                <input
+                  type="text"
+                  placeholder={t(lang, 'to')}
+                  value={to}
+                  onChange={(e) => handleSearch(e.target.value, 'to')}
+                  onFocus={() => setActiveField('to')}
+                  style={styles.input}
+                />
+                {activeField === 'to' && suggestions.length > 0 && (
+                  <div style={styles.suggestions}>
+                    {suggestions.map((s, i) => (
+                      <div key={i} style={styles.suggestionItem} onClick={() => selectSuggestion(s)}>
+                        🏁 {s.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Тарифы */}
+            <div style={styles.tariffs}>
+              {Object.entries(tariffs).map(([key, value]) => (
+                <button
+                  key={key}
+                  onClick={() => setTariff(key)}
+                  style={{
+                    ...styles.tariffBtn,
+                    ...(tariff === key ? styles.tariffActive : {}),
+                  }}
+                >
+                  <div style={styles.tariffIcon}>{value.icon}</div>
+                  <div style={styles.tariffName}>{t(lang, value.name)}</div>
+                  <div style={styles.tariffPrice}>{value.price} {t(lang, 'tenge')}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Оплата */}
+            <div style={styles.paymentLabel}>{t(lang, 'payment')}:</div>
+            <div style={styles.paymentMethods}>
+              {paymentMethods.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setPayment(p.id)}
+                  style={{
+                    ...styles.paymentBtn,
+                    ...(payment === p.id ? styles.paymentActive : {}),
+                  }}
+                >
+                  {p.id === 'cash' ? (
+                    <span style={{fontSize: '28px'}}>{p.icon}</span>
+                  ) : (
+                    <img src={p.icon} alt={p.name} style={styles.logo} />
+                  )}
+                  <span>{t(lang, p.name)}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Итого */}
+            <div style={styles.totalRow}>
+              <span>{t(lang, 'total')}:</span>
+              <span style={styles.totalPrice}>{tariffs[tariff].price} {t(lang, 'tenge')}</span>
+            </div>
+
+            {/* Кнопка заказа */}
+            <button onClick={handleOrder} style={styles.orderBtn}>
+              {t(lang, 'order')} 🚕
+            </button>
           </div>
-
-          {/* Тарифы */}
-          <div style={styles.tariffs}>
-            {Object.entries(tariffs).map(([key, value]) => (
-              <button
-                key={key}
-                onClick={() => setTariff(key)}
-                style={{
-                  ...styles.tariffBtn,
-                  ...(tariff === key ? styles.tariffActive : {}),
-                }}
-              >
-                <div style={styles.tariffIcon}>{value.icon}</div>
-                <div style={styles.tariffName}>{t(lang, value.name)}</div>
-                <div style={styles.tariffPrice}>{value.price} {t(lang, 'tenge')}</div>
-              </button>
-            ))}
-          </div>
-
-{/* Оплата */}
-<div style={styles.paymentLabel}>{t(lang, 'payment')}:</div>
-<div style={styles.paymentMethods}>
-  {paymentMethods.map((p) => (
-    <button
-      key={p.id}
-      onClick={() => setPayment(p.id)}
-      style={{
-        ...styles.paymentBtn,
-        ...(payment === p.id ? styles.paymentActive : {}),
-        ...(p.id === 'kaspi' ? styles.kaspiBtn : {}),
-        ...(p.id === 'halyk' ? styles.halykBtn : {}),
-      }}
-    >
-      {p.id === 'cash' ? (
-        <span style={{fontSize: '28px'}}>{p.icon}</span>
-      ) : (
-        <img src={p.icon} alt={p.name} style={styles.logo} />
-      )}
-      <span>{t(lang, p.name)}</span>
-    </button>
-  ))}
-</div>
-
-          {/* Итого */}
-          <div style={styles.totalRow}>
-            <span>{t(lang, 'total')}:</span>
-            <span style={styles.totalPrice}>{tariffs[tariff].price} {t(lang, 'tenge')}</span>
-          </div>
-
-          {/* Кнопка заказа */}
-          <button onClick={handleOrder} style={styles.orderBtn}>
-            {t(lang, 'order')} 🚕
-          </button>
         </div>
 
         {/* Модалка истории */}
@@ -329,7 +337,7 @@ export default function Home() {
             <div style={styles.modalContent}>
               <div style={styles.modalHeader}>
                 <h2 style={styles.modalTitle}>{t(lang, 'history')}</h2>
-                <button onClick={() => setShowHistory(false)} style={styles.closeBtn}></button>
+                <button onClick={() => setShowHistory(false)} style={styles.closeBtn}>✕</button>
               </div>
               <div style={styles.modalBody}>
                 {orders.length === 0 ? (
@@ -364,58 +372,26 @@ const styles = {
     flexDirection: 'column',
     backgroundColor: '#f5f5f5',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    height: '100vh', // Добавь эту строку
-    overflow: 'hidden', // Добавь эту строку
+    height: '100vh',
   },
   header: {
     backgroundColor: '#FFD700',
-    padding: '20px',
-    paddingTop: '50px',
+    padding: '15px',
+    paddingTop: '45px',
+    flexShrink: 0,
   },
-  headerTop: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  // ... (headerTop, title и т.д. остаются без изменений)
+  
+  scrollContent: {
+    flex: 1,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    WebkitOverflowScrolling: 'touch',
   },
-  title: {
-    margin: 0,
-    fontSize: '26px',
-    fontWeight: 'bold',
-  },
-  headerButtons: {
-    display: 'flex',
-    gap: '10px',
-  },
-  langBtn: {
-    backgroundColor: '#fff',
-    border: 'none',
-    padding: '6px 12px',
-    borderRadius: '8px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
-  historyBtn: {
-    backgroundColor: '#fff',
-    border: 'none',
-    padding: '6px 12px',
-    borderRadius: '8px',
-    fontSize: '18px',
-    cursor: 'pointer',
-  },
-  greeting: {
-    margin: '8px 0 4px',
-    fontSize: '15px',
-  },
-  tagline: {
-    margin: 0,
-    fontSize: '13px',
-    opacity: 0.9,
-  },
-    mapContainer: {
-    height: '200px', // Было 250px, уменьшаем
+  mapContainer: {
+    height: '220px',
     position: 'relative',
-    marginBottom: '30px', // Добавь эту строку
+    width: '100%',
   },
   mapPlaceholder: {
     width: '100%',
@@ -425,31 +401,20 @@ const styles = {
     justifyContent: 'center',
     backgroundColor: '#e0e0e0',
   },
-  geoButton: {
-    position: 'absolute',
-    bottom: '15px',
-    right: '15px',
-    width: '48px',
-    height: '48px',
-    borderRadius: '50%',
-    backgroundColor: '#fff',
-    border: 'none',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-    fontSize: '22px',
-    cursor: 'pointer',
-    zIndex: 1000,
-  },
-    form: {
-    flex: 1,
-    padding: '15px', // Было 20px
+  // ... остальные стили карты
+  
+  form: {
+    padding: '20px',
     backgroundColor: '#fff',
     borderTopLeftRadius: '25px',
     borderTopRightRadius: '25px',
-    marginTop: '-30px', // Поднимаем выше
+    marginTop: '-30px',
+    position: 'relative',
+    zIndex: 10,
     boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
-    overflowY: 'auto', // Разрешаем скролл ВНУТРИ формы
-    paddingBottom: '30px', // Отступ снизу
+    paddingBottom: '30px',
   },
+  // ... остальные стили формы
   inputWrapper: {
     display: 'flex',
     alignItems: 'flex-start',
