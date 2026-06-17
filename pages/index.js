@@ -1,26 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import Head from 'next/head';
 import { t } from '../lib/i18n';
-import { searchAddress } from '../lib/geocode';
 import { saveOrder, getOrders } from '../lib/supabase';
-
-// Глобальные стили
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style');
-  style.textContent = `
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
-    html, body {
-      overflow-x: hidden;
-      touch-action: pan-y;
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 const Map = lazy(() => import('../components/Map'));
 
@@ -44,14 +25,13 @@ export default function Home() {
       const tg = window.Telegram.WebApp;
       tg.ready();
       
-      // Принудительное раскрытие на весь экран
+      // Принудительное раскрытие
       tg.expand();
       setTimeout(() => tg.expand(), 100);
       setTimeout(() => tg.expand(), 300);
       
       tg.setHeaderColor('#FFD700');
       tg.setBackgroundColor('#ffffff');
-      tg.enableClosingConfirmation();
       
       if (tg.initDataUnsafe?.user) {
         setUser(tg.initDataUnsafe.user);
@@ -59,6 +39,7 @@ export default function Home() {
     }
     requestLocation();
   }, []);
+
   const requestLocation = async () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
       setLoadingLocation(true);
@@ -71,7 +52,7 @@ export default function Home() {
           
           const { reverseGeocode } = await import('../lib/geocode');
           const address = await reverseGeocode(lat, lng);
-          setFrom(address || `Моё местоположение`);
+          setFrom(address || 'Моё местоположение');
           setLoadingLocation(false);
         },
         (error) => {
@@ -98,6 +79,7 @@ export default function Home() {
     }
 
     const timeout = setTimeout(async () => {
+      const { searchAddress } = await import('../lib/geocode');
       const results = await searchAddress(value);
       setSuggestions(results);
     }, 500);
@@ -119,9 +101,9 @@ export default function Home() {
       const address = await reverseGeocode(latlng.lat, latlng.lng);
       
       if (activeField === 'to' || (to && activeField !== 'from')) {
-        setTo(address || `Точка на карте`);
+        setTo(address || 'Точка на карте');
       } else {
-        setFrom(address || `Точка на карте`);
+        setFrom(address || 'Точка на карте');
       }
     } catch (error) {
       console.error('Map click error:', error);
@@ -129,18 +111,18 @@ export default function Home() {
     
     setLoadingLocation(false);
   };
-  
+
   const tariffs = {
     economy: { name: 'economy', price: 1000, icon: '🚗', time: 5 },
     comfort: { name: 'comfort', price: 1500, icon: '🚙', time: 7 },
-    business: { name: 'business', price: 2500, icon: '', time: 10 },
+    business: { name: 'business', price: 2500, icon: '🚘', time: 10 },
   };
 
   const paymentMethods = [
-  { id: 'cash', icon: '💵', name: 'cash' },
-  { id: 'kaspi', icon: '/kaspi-logo.PNG', name: 'kaspi' },
-  { id: 'halyk', icon: '/halyk-logo.PNG', name: 'halyk' },
-];
+    { id: 'cash', icon: '💵', name: 'cash' },
+    { id: 'kaspi', icon: '/kaspi-logo.png', name: 'kaspi' },
+    { id: 'halyk', icon: '/halyk-logo.png', name: 'halyk' },
+  ];
 
   const handleOrder = async () => {
     if (!from || !to) {
@@ -167,7 +149,7 @@ export default function Home() {
     if (result.success) {
       alert(`${t(lang, 'orderSuccess')}\n\n📍 ${from}\n🏁 ${to}\n🚗 ${t(lang, tariff)}\n💰 ${tariffs[tariff].price} ${t(lang, 'tenge')}\n⏱ ${t(lang, 'driverComing')} ${tariffs[tariff].time} ${t(lang, 'minutes')}`);
     } else {
-      alert('Ошибка сохранения заказа. Попробуйте еще раз.');
+      alert('Ошибка сохранения заказа.');
     }
   };
 
@@ -191,73 +173,33 @@ export default function Home() {
     <>
       <Head>
         <title>{t(lang, 'appName')}</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-        <style>{`
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-          }
-          html, body {
-            overflow-x: hidden;
-            height: 100%;
-          }
-        `}</style>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
       </Head>
 
       <div style={styles.container}>
-        {/* Шапка */}
         <div style={styles.header}>
           <div style={styles.headerTop}>
             <h1 style={styles.title}>{t(lang, 'appName')} 🚕</h1>
             <div style={styles.headerButtons}>
-              <button onClick={changeLanguage} style={styles.langBtn}>
-                {lang.toUpperCase()}
-              </button>
-              <button onClick={loadHistory} style={styles.historyBtn}>
-                📋
-              </button>
+              <button onClick={changeLanguage} style={styles.langBtn}>{lang.toUpperCase()}</button>
+              <button onClick={loadHistory} style={styles.historyBtn}>📋</button>
             </div>
           </div>
-          {user && (
-            <p style={styles.greeting}>
-              {t(lang, 'welcome')}, {user.first_name}! 
-            </p>
-          )}
+          {user && <p style={styles.greeting}>{t(lang, 'welcome')}, {user.first_name}! 👋</p>}
           <p style={styles.tagline}>{t(lang, 'tagline')}</p>
         </div>
 
-        {/* ВСЁ содержимое скроллится */}
         <div style={styles.scrollContent}>
-          {/* Карта */}
           <div style={styles.mapContainer}>
             <Suspense fallback={<div style={styles.mapPlaceholder}>🗺️ Загрузка...</div>}>
-<Map 
-  onLocationSelect={(latlng) => {
-    setLoadingLocation(true);
-    import('../lib/geocode').then(({ reverseGeocode }) => {
-      reverseGeocode(latlng.lat, latlng.lng).then(address => {
-        if (activeField === 'to' || (to && activeField !== 'from')) {
-          setTo(address || `Точка на карте`);
-        } else {
-          setFrom(address || `Точка на карте`);
-        }
-        setLoadingLocation(false);
-      });
-    });
-  }}
-  userLocation={userLocation}
-/>
+              <Map onLocationSelect={handleMapClick} userLocation={userLocation} />
             </Suspense>
             <button onClick={requestLocation} style={styles.geoButton}>
               {loadingLocation ? '⏳' : '📍'}
             </button>
           </div>
 
-          {/* Форма */}
           <div style={styles.form}>
-            {/* Откуда */}
             <div style={styles.inputWrapper}>
               <span style={styles.icon}>📍</span>
               <div style={styles.inputContainer}>
@@ -283,7 +225,6 @@ export default function Home() {
 
             <div style={styles.line}></div>
 
-            {/* Куда */}
             <div style={styles.inputWrapper}>
               <span style={styles.icon}>🏁</span>
               <div style={styles.inputContainer}>
@@ -307,7 +248,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Тарифы */}
             <div style={styles.tariffs}>
               {Object.entries(tariffs).map(([key, value]) => (
                 <button
@@ -325,7 +265,6 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Оплата */}
             <div style={styles.paymentLabel}>{t(lang, 'payment')}:</div>
             <div style={styles.paymentMethods}>
               {paymentMethods.map((p) => (
@@ -347,20 +286,17 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Итого */}
             <div style={styles.totalRow}>
               <span>{t(lang, 'total')}:</span>
               <span style={styles.totalPrice}>{tariffs[tariff].price} {t(lang, 'tenge')}</span>
             </div>
 
-            {/* Кнопка заказа */}
             <button onClick={handleOrder} style={styles.orderBtn}>
               {t(lang, 'order')} 🚕
             </button>
           </div>
         </div>
 
-        {/* Модалка истории */}
         {showHistory && (
           <div style={styles.modal}>
             <div style={styles.modalContent}>
@@ -374,14 +310,10 @@ export default function Home() {
                 ) : (
                   orders.map((order, i) => (
                     <div key={i} style={styles.orderItem}>
-                      <div style={styles.orderDate}>
-                        {new Date(order.created_at).toLocaleString('ru-RU')}
-                      </div>
+                      <div style={styles.orderDate}>{new Date(order.created_at).toLocaleString('ru-RU')}</div>
                       <div>📍 {order.from}</div>
                       <div>🏁 {order.to}</div>
-                      <div style={styles.orderPrice}>
-                        💰 {order.price} {t(lang, 'tenge')} • {t(lang, order.tariff)}
-                      </div>
+                      <div style={styles.orderPrice}>💰 {order.price} {t(lang, 'tenge')} • {t(lang, order.tariff)}</div>
                     </div>
                   ))
                 )}
@@ -402,50 +334,126 @@ const styles = {
     backgroundColor: '#f5f5f5',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     height: '100vh',
+    overflow: 'hidden',
   },
   header: {
     backgroundColor: '#FFD700',
-    padding: '12px',  // Было 15px или 20px
-    paddingTop: '40px',  // Было 45px или 50px
+    padding: '12px',
+    paddingTop: '40px',
     flexShrink: 0,
   },
-  
+  headerTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  title: {
+    margin: 0,
+    fontSize: '24px',
+    fontWeight: 'bold',
+  },
+  headerButtons: {
+    display: 'flex',
+    gap: '8px',
+  },
+  langBtn: {
+    backgroundColor: '#fff',
+    border: 'none',
+    padding: '6px 10px',
+    borderRadius: '8px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    fontSize: '13px',
+  },
+  historyBtn: {
+    backgroundColor: '#fff',
+    border: 'none',
+    padding: '6px 10px',
+    borderRadius: '8px',
+    fontSize: '18px',
+    cursor: 'pointer',
+  },
+  greeting: {
+    margin: '8px 0 4px',
+    fontSize: '14px',
+  },
+  tagline: {
+    margin: 0,
+    fontSize: '13px',
+    opacity: 0.9,
+  },
+  scrollContent: {
+    flex: 1,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    WebkitOverflowScrolling: 'touch',
+  },
   mapContainer: {
-    height: '200px',  // Уменьшил с 220px
+    height: '200px',
     position: 'relative',
     width: '100%',
   },
-  
+  mapPlaceholder: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e0e0e0',
+  },
+  geoButton: {
+    position: 'absolute',
+    bottom: '10px',
+    right: '10px',
+    width: '45px',
+    height: '45px',
+    borderRadius: '50%',
+    backgroundColor: '#fff',
+    border: 'none',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
+    fontSize: '20px',
+    cursor: 'pointer',
+    zIndex: 1000,
+  },
   form: {
     padding: '15px',
     backgroundColor: '#fff',
     borderTopLeftRadius: '25px',
     borderTopRightRadius: '25px',
-    marginTop: '-40px',  // Увеличил отрицательный margin
+    marginTop: '-40px',
     position: 'relative',
     zIndex: 10,
     boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
     paddingBottom: '30px',
   },
-  
-  input: {
-    width: '100%',
-    padding: '14px',
-    border: '1px solid #ddd',
-    borderRadius: '12px',
-    fontSize: '16px',
-    outline: 'none',
-    boxSizing: 'border-box',
-    cursor: 'text',  // Добавил курсор
-    pointerEvents: 'auto',  // Разрешил клики
+  inputWrapper: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '10px',
+    marginBottom: '8px',
   },
-  
   inputContainer: {
     flex: 1,
     position: 'relative',
-    zIndex: 100,  // Добавил высокий z-index
+    zIndex: 100,
   },
-  
+  icon: {
+    fontSize: '20px',
+    width: '28px',
+    textAlign: 'center',
+    paddingTop: '12px',
+  },
+  input: {
+    width: '100%',
+    padding: '12px',
+    border: '1px solid #ddd',
+    borderRadius: '10px',
+    fontSize: '15px',
+    outline: 'none',
+    boxSizing: 'border-box',
+    cursor: 'text',
+    pointerEvents: 'auto',
+  },
   suggestions: {
     position: 'absolute',
     top: '100%',
@@ -457,11 +465,11 @@ const styles = {
     marginTop: '5px',
     maxHeight: '200px',
     overflowY: 'auto',
-    zIndex: 1000,  // Увеличил z-index
-    boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+    zIndex: 1000,
+    boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
   },
   suggestionItem: {
-    padding: '12px',
+    padding: '10px',
     borderBottom: '1px solid #f0f0f0',
     cursor: 'pointer',
     fontSize: '14px',
@@ -469,20 +477,20 @@ const styles = {
   line: {
     height: '2px',
     backgroundColor: '#FFD700',
-    margin: '8px 22px',
+    margin: '8px 18px',
     opacity: 0.5,
   },
   tariffs: {
     display: 'flex',
-    gap: '10px',
-    marginBottom: '20px',
-    marginTop: '20px',
+    gap: '8px',
+    marginBottom: '15px',
+    marginTop: '15px',
   },
   tariffBtn: {
     flex: 1,
-    padding: '12px 8px',
+    padding: '10px 6px',
     border: '2px solid #ddd',
-    borderRadius: '12px',
+    borderRadius: '10px',
     backgroundColor: '#fff',
     cursor: 'pointer',
     textAlign: 'center',
@@ -492,78 +500,74 @@ const styles = {
     backgroundColor: '#FFFDE7',
   },
   tariffIcon: {
-    fontSize: '26px',
-    marginBottom: '4px',
+    fontSize: '24px',
+    marginBottom: '3px',
   },
   tariffName: {
-    fontSize: '13px',
+    fontSize: '12px',
     fontWeight: 'bold',
     marginBottom: '2px',
   },
   tariffPrice: {
-    fontSize: '12px',
+    fontSize: '11px',
     color: '#666',
   },
   paymentLabel: {
-    fontSize: '14px',
+    fontSize: '13px',
     fontWeight: 'bold',
-    marginBottom: '10px',
+    marginBottom: '8px',
     color: '#333',
   },
-    paymentMethods: {
+  paymentMethods: {
     display: 'flex',
-    gap: '10px',
-    marginBottom: '20px',
+    gap: '8px',
+    marginBottom: '15px',
   },
   paymentBtn: {
     flex: 1,
-    padding: '12px',
+    padding: '10px',
     border: '2px solid #ddd',
-    borderRadius: '12px',
+    borderRadius: '10px',
     backgroundColor: '#fff',
     cursor: 'pointer',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '5px',
-    fontSize: '13px',
-    position: 'relative',
-    zIndex: 10,
+    gap: '4px',
+    fontSize: '12px',
   },
   paymentActive: {
     borderColor: '#FFD700',
     backgroundColor: '#FFFDE7',
   },
-    kaspiBtn: {},
-    halykBtn: {},
   logo: {
-    width: '40px',
-    height: '40px',
+    width: '35px',
+    height: '35px',
     objectFit: 'contain',
-    marginBottom: '5px',
+    marginBottom: '3px',
     pointerEvents: 'none',
   },
   totalRow: {
     display: 'flex',
     justifyContent: 'space-between',
-    padding: '15px',
+    padding: '12px',
     backgroundColor: '#f9f9f9',
-    borderRadius: '12px',
-    marginBottom: '20px',
-    fontSize: '18px',
+    borderRadius: '10px',
+    marginBottom: '15px',
+    fontSize: '16px',
     fontWeight: 'bold',
   },
   totalPrice: {
     color: '#FFD700',
-    fontSize: '22px',
+    fontSize: '20px',
   },
   orderBtn: {
     width: '100%',
-    padding: '20px',
+    padding: '18px',
     backgroundColor: '#FFD700',
     border: 'none',
-    borderRadius: '15px',
-    fontSize: '20px',
+    borderRadius: '12px',
+    fontSize: '18px',
     fontWeight: 'bold',
     cursor: 'pointer',
     boxShadow: '0 4px 15px rgba(255, 215, 0, 0.4)',
@@ -594,22 +598,24 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '20px',
+    padding: '15px',
     borderBottom: '1px solid #eee',
   },
   modalTitle: {
     margin: 0,
-    fontSize: '20px',
+    fontSize: '18px',
   },
   closeBtn: {
     background: 'none',
     border: 'none',
     fontSize: '24px',
     cursor: 'pointer',
-    padding: '5px',
+    padding: '0',
+    width: '30px',
+    height: '30px',
   },
   modalBody: {
-    padding: '20px',
+    padding: '15px',
     overflowY: 'auto',
   },
   emptyText: {
@@ -618,21 +624,20 @@ const styles = {
     padding: '30px',
   },
   orderItem: {
-    padding: '15px',
+    padding: '12px',
     backgroundColor: '#f9f9f9',
-    borderRadius: '12px',
-    marginBottom: '10px',
-    fontSize: '14px',
+    borderRadius: '10px',
+    marginBottom: '8px',
+    fontSize: '13px',
   },
   orderDate: {
-    fontSize: '12px',
+    fontSize: '11px',
     color: '#999',
-    marginBottom: '8px',
+    marginBottom: '6px',
   },
   orderPrice: {
-    marginTop: '8px',
+    marginTop: '6px',
     fontWeight: 'bold',
     color: '#FFD700',
   },
 };
-
