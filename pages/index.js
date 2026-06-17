@@ -97,10 +97,10 @@ export default function Home() {
   };
 
   const paymentMethods = [
-    { id: 'cash', icon: '💵', name: 'cash' },
-    { id: 'kaspi', icon: '', name: 'kaspi' },
-    { id: 'halyk', icon: '🔵', name: 'halyk' },
-  ];
+  { id: 'cash', icon: '💵', name: 'cash' },
+  { id: 'kaspi', icon: '/kaspi-logo.png', name: 'kaspi' },
+  { id: 'halyk', icon: '/halyk-logo.png', name: 'halyk' },
+];
 
   const handleOrder = async () => {
     if (!from || !to) {
@@ -256,23 +256,29 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Оплата */}
-          <div style={styles.paymentLabel}>{t(lang, 'payment')}:</div>
-          <div style={styles.paymentMethods}>
-            {paymentMethods.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setPayment(p.id)}
-                style={{
-                  ...styles.paymentBtn,
-                  ...(payment === p.id ? styles.paymentActive : {}),
-                }}
-              >
-                <span>{p.icon}</span>
-                <span>{t(lang, p.name)}</span>
-              </button>
-            ))}
-          </div>
+{/* Оплата */}
+<div style={styles.paymentLabel}>{t(lang, 'payment')}:</div>
+<div style={styles.paymentMethods}>
+  {paymentMethods.map((p) => (
+    <button
+      key={p.id}
+      onClick={() => setPayment(p.id)}
+      style={{
+        ...styles.paymentBtn,
+        ...(payment === p.id ? styles.paymentActive : {}),
+        ...(p.id === 'kaspi' ? styles.kaspiBtn : {}),
+        ...(p.id === 'halyk' ? styles.halykBtn : {}),
+      }}
+    >
+      {p.id === 'cash' ? (
+        <span style={{fontSize: '28px'}}>{p.icon}</span>
+      ) : (
+        <img src={p.icon} alt={p.name} style={styles.logo} />
+      )}
+      <span>{t(lang, p.name)}</span>
+    </button>
+  ))}
+</div>
 
           {/* Итого */}
           <div style={styles.totalRow}>
@@ -518,6 +524,18 @@ const styles = {
   paymentActive: {
     borderColor: '#FFD700',
     backgroundColor: '#FFFDE7',
+  },
+  kaspiBtn: {
+    borderColor: '#E31E24',
+  },
+  halykBtn: {
+    borderColor: '#00A651',
+  },
+  logo: {
+    width: '40px',
+    height: '40px',
+    objectFit: 'contain',
+    marginBottom: '5px',
   },
   totalRow: {
     display: 'flex',
