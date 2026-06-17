@@ -157,9 +157,10 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>{t(lang, 'appName')}</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-      </Head>
+  <title>{t(lang, 'appName')}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="telegram-web-app" content="true" />
+</Head>
 
       <div style={styles.container}>
         {/* Шапка */}
