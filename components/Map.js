@@ -12,7 +12,7 @@ L.Icon.Default.mergeOptions({
 });
 
 // Координаты центра села Шарбакты
-const SHARBAKTY_CENTER = [53.2167, 75.6833]; // Центр села Шарбакты
+const SHARBAKTY_CENTER = [52.48945, 78.16120]; // Центр села Шарбакты
 
 // Кастомная иконка для текущей позиции
 const locationIcon = new L.Icon({
@@ -48,12 +48,15 @@ export default function Map({ onLocationSelect, userLocation }) {
   const [currentPos, setCurrentPos] = useState(SHARBAKTY_CENTER);
   const [zoom, setZoom] = useState(15);
 
-  useEffect(() => {
-    if (userLocation) {
-      setCurrentPos([userLocation.lat, userLocation.lng]);
-      setZoom(15);
-    }
-  }, [userLocation]);
+useEffect(() => {
+  if (userLocation) {
+    setCurrentPos([userLocation.lat, userLocation.lng]);
+    setZoom(15);
+  } else {
+    setCurrentPos(SHARBAKTY_CENTER);
+    setZoom(14);
+  }
+}, [userLocation]);
 
   const handleMapClick = (e) => {
     if (onLocationSelect) {
