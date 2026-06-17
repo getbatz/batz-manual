@@ -406,14 +406,14 @@ const styles = {
     zIndex: 1000,
   },
   form: {
-    flex: 1,
-    padding: '20px',
-    backgroundColor: '#fff',
-    borderTopLeftRadius: '25px',
-    borderTopRightRadius: '25px',
-    marginTop: '-20px',
-    boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
-  },
+  flex: 1,
+  padding: '20px',
+  backgroundColor: '#fff',
+  borderTopLeftRadius: '25px',
+  borderTopRightRadius: '25px',
+  marginTop: '-40px', // Было -20px, сделай -40px или -50px
+  boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
+},
   inputWrapper: {
     display: 'flex',
     alignItems: 'flex-start',
