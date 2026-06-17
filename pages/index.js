@@ -21,29 +21,30 @@ export default function Home() {
   const [orders, setOrders] = useState([]);
   const [searchTimeout, setSearchTimeout] = useState(null);
 
-  useEffect(() => {
-  if (typeof window !== 'undefined' && window.Telegram) {
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    tg.enableClosingConfirmation(); // Подтверждение закрытия
-    
-    // Устанавливаем полную высоту
-    tg.setHeaderColor('#FFD700');
-    tg.setBackgroundColor('#ffffff');
-    
-    // Разворачиваем на весь экран
-    if (tg.viewportHeight) {
-      document.documentElement.style.height = tg.viewportHeight + 'px';
+    useEffect(() => {
+    if (typeof window !== 'undefined' && window.Telegram) {
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+      
+      // Устанавливаем цвета
+      tg.setHeaderColor('#FFD700');
+      tg.setBackgroundColor('#ffffff');
+      
+      // Разворачиваем на весь экран
+      document.body.style.margin = '0';
+      document.body.style.padding = '0';
+      document.documentElement.style.height = '100vh';
+      document.body.style.height = '100vh';
+      document.body.style.overflow = 'hidden';
+      
+      if (tg.initDataUnsafe?.user) {
+        setUser(tg.initDataUnsafe.user);
+      }
     }
-    
-    if (tg.initDataUnsafe?.user) {
-      setUser(tg.initDataUnsafe.user);
-    }
-  }
 
-  requestLocation();
-}, []);
+    requestLocation();
+  }, []);
 
   const requestLocation = async () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -159,7 +160,14 @@ export default function Home() {
       <Head>
   <title>{t(lang, 'appName')}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="telegram-web-app" content="true" />
+  <style>{`
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+  `}</style>
 </Head>
 
       <div style={styles.container}>
@@ -387,9 +395,10 @@ const styles = {
     fontSize: '13px',
     opacity: 0.9,
   },
-  mapContainer: {
+    mapContainer: {
     height: '250px',
     position: 'relative',
+    marginBottom: '30px', // Добавь эту строку
   },
   mapPlaceholder: {
     width: '100%',
@@ -413,15 +422,15 @@ const styles = {
     cursor: 'pointer',
     zIndex: 1000,
   },
-  form: {
-  flex: 1,
-  padding: '20px',
-  backgroundColor: '#fff',
-  borderTopLeftRadius: '25px',
-  borderTopRightRadius: '25px',
-  marginTop: '-40px', // Было -20px, сделай -40px или -50px
-  boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
-},
+    form: {
+    flex: 1,
+    padding: '20px',
+    backgroundColor: '#fff',
+    borderTopLeftRadius: '25px',
+    borderTopRightRadius: '25px',
+    marginTop: '0px', // Было -20px или -40px, ставим 0
+    boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
+  },
   inputWrapper: {
     display: 'flex',
     alignItems: 'flex-start',
@@ -535,12 +544,8 @@ const styles = {
     borderColor: '#FFD700',
     backgroundColor: '#FFFDE7',
   },
-  kaspiBtn: {
-    borderColor: '#E31E24',
-  },
-  halykBtn: {
-    borderColor: '#00A651',
-  },
+    kaspiBtn: {},
+    halykBtn: {},
   logo: {
     width: '40px',
     height: '40px',
