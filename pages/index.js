@@ -120,8 +120,8 @@ export default function Home() {
 
   const paymentMethods = [
     { id: 'cash', icon: '💵', name: 'cash' },
-    { id: 'kaspi', icon: '/kaspi-logo.png', name: 'kaspi' },
-    { id: 'halyk', icon: '/halyk-logo.png', name: 'halyk' },
+    { id: 'kaspi', icon: '/kaspi-logo.PNG', name: 'kaspi' },
+    { id: 'halyk', icon: '/halyk-logo.PNG', name: 'halyk' },
   ];
 
   const handleOrder = async () => {
