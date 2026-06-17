@@ -39,27 +39,28 @@ export default function Home() {
   const [orders, setOrders] = useState([]);
   const [searchTimeout, setSearchTimeout] = useState(null);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.Telegram) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
+useEffect(() => {
+  if (typeof window !== 'undefined' && window.Telegram) {
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    
+    // Принудительное раскрытие
+    const expandApp = () => {
       tg.expand();
-      
-      // Принудительно разворачиваем
-      setTimeout(() => {
-        tg.expand();
-        tg.setHeaderColor('#FFD700');
-      }, 100);
-      
+      tg.setHeaderColor('#FFD700');
       tg.setBackgroundColor('#ffffff');
-      
-      if (tg.initDataUnsafe?.user) {
-        setUser(tg.initDataUnsafe.user);
-      }
+    };
+    
+    expandApp();
+    setTimeout(expandApp, 100);
+    setTimeout(expandApp, 300);
+    
+    if (tg.initDataUnsafe?.user) {
+      setUser(tg.initDataUnsafe.user);
     }
-
-    requestLocation();
-  }, []);
+  }
+  requestLocation();
+}, []);
 
   const requestLocation = async () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -113,6 +114,31 @@ export default function Home() {
     setSuggestions([]);
   };
 
+    const handleMapClick = async (latlng) => {
+    setLoadingLocation(true);
+    
+    try {
+      const { reverseGeocode } = await import('../lib/geocode');
+      const address = await reverseGeocode(latlng.lat, latlng.lng);
+      
+      // Определяем куда ставить адрес - в "откуда" или "куда"
+      if (activeField === 'to' || (to && activeField !== 'from')) {
+        setTo(address || `Точка на карте (${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)})`);
+      } else {
+        setFrom(address || `Точка на карте (${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)})`);
+      }
+    } catch (error) {
+      console.error('Map click error:', error);
+      if (activeField === 'to' || to) {
+        setTo(`Точка на карте`);
+      } else {
+        setFrom(`Точка на карте`);
+      }
+    }
+    
+    setLoadingLocation(false);
+  };
+  
   const tariffs = {
     economy: { name: 'economy', price: 1000, icon: '🚗', time: 5 },
     comfort: { name: 'comfort', price: 1500, icon: '🚙', time: 7 },
