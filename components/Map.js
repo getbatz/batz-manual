@@ -68,13 +68,13 @@ useEffect(() => {
   };
 
   return (
-    <MapContainer
-      center={currentPos}
-      zoom={zoom}
-      style={{ width: '100%', height: '100%' }}
-      onClick={handleMapClick}
-      zoomControl={false}
-    >
+<MapContainer
+  center={currentPos}
+  zoom={zoom}
+  style={{ width: '100%', height: '100%' }}
+  onClick={(e) => onLocationSelect && onLocationSelect(e.latlng)}
+  zoomControl={false}
+>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
