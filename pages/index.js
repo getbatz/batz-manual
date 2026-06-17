@@ -1,11 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import Head from 'next/head';
+
+// Динамический импорт карты (чтобы не ломать сборку)
+const Map = lazy(() => import('../components/Map'));
 
 export default function Home() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [tariff, setTariff] = useState('economy');
   const [user, setUser] = useState(null);
+  const [mapCenter, setMapCenter] = useState([53.2167, 75.6833]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Telegram) {
@@ -25,7 +29,12 @@ export default function Home() {
   const tariffs = {
     economy: { name: 'Эконом', price: 1000, icon: '🚗', time: 5 },
     comfort: { name: 'Комфорт', price: 1500, icon: '🚙', time: 7 },
-    business: { name: 'Бизнес', price: 2500, icon: '🚘', time: 10 },
+    business: { name: 'Бизнес', price: 2500, icon: '', time: 10 },
+  };
+
+  const handleMapClick = (latlng) => {
+    setMapCenter([latlng.lat, latlng.lng]);
+    setFrom(`Координаты: ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`);
   };
 
   const handleOrder = () => {
@@ -64,15 +73,17 @@ export default function Home() {
           <h1 style={styles.title}>Такси БАЦ 🚕</h1>
           {user && (
             <p style={styles.greeting}>
-              Привет, {user.first_name}! 👋
+              Привет, {user.first_name}! 
             </p>
           )}
           <p style={styles.tagline}>Быстро. Удобно. Рядом.</p>
         </div>
 
-        {/* Карта placeholder */}
-        <div style={styles.mapPlaceholder}>
-          📍 Карта (будет в следующей версии)
+        {/* Карта */}
+        <div style={styles.mapContainer}>
+          <Suspense fallback={<div style={styles.mapPlaceholder}> Загрузка карты...</div>}>
+            <Map onLocationSelect={handleMapClick} />
+          </Suspense>
         </div>
 
         {/* Форма */}
@@ -157,12 +168,17 @@ const styles = {
     fontSize: '14px',
     opacity: 0.9,
   },
+  mapContainer: {
+    height: '250px',
+    position: 'relative',
+  },
   mapPlaceholder: {
-    height: '200px',
-    backgroundColor: '#e0e0e0',
+    width: '100%',
+    height: '100%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#e0e0e0',
     fontSize: '16px',
     color: '#666',
   },
