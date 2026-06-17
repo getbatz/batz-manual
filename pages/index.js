@@ -98,8 +98,8 @@ export default function Home() {
 
   const paymentMethods = [
   { id: 'cash', icon: '💵', name: 'cash' },
-  { id: 'kaspi', icon: '/kaspi-logo.png', name: 'kaspi' },
-  { id: 'halyk', icon: '/halyk-logo.png', name: 'halyk' },
+  { id: 'kaspi', icon: '/kaspi-logo.PNG', name: 'kaspi' },
+  { id: 'halyk', icon: '/halyk-logo.PNG', name: 'halyk' },
 ];
 
   const handleOrder = async () => {
@@ -509,18 +509,20 @@ const styles = {
     marginBottom: '20px',
   },
   paymentBtn: {
-    flex: 1,
-    padding: '12px',
-    border: '2px solid #ddd',
-    borderRadius: '12px',
-    backgroundColor: '#fff',
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '5px',
-    fontSize: '13px',
-  },
+  flex: 1,
+  padding: '12px',
+  border: '2px solid #ddd',
+  borderRadius: '12px',
+  backgroundColor: '#fff',
+  cursor: 'pointer',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '5px',
+  fontSize: '13px',
+  position: 'relative',
+  zIndex: 10,
+},
   paymentActive: {
     borderColor: '#FFD700',
     backgroundColor: '#FFFDE7',
